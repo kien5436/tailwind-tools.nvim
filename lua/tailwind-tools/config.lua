@@ -57,6 +57,7 @@ M.options = {
   server = {
     override = true,
     settings = {},
+    client_extension = true,
   },
   document_color = {
     enabled = true,
