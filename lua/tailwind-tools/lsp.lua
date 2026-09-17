@@ -147,6 +147,38 @@ M.setup = function(server_config, lspconfig)
   lspconfig.tailwindcss.setup(conf)
 end
 
+---@param server_config TailwindTools.ServerOption
+M.setup_native = function(server_config)
+  local conf = { settings = {} }
+  conf.on_attach = M.make_on_attach(server_config.on_attach)
+
+  -- nvim-lspconfig's native `lsp/tailwindcss.lua` supplies the default root
+  -- resolver. Preserve the plugin's legacy `root_dir(fname)` option by adapting
+  -- it to Neovim 0.11's asynchronous `root_dir(bufnr, on_dir)` callback.
+  if server_config.root_dir then
+    conf.root_dir = function(bufnr, on_dir)
+      on_dir(server_config.root_dir(vim.api.nvim_buf_get_name(bufnr)))
+    end
+  end
+
+  conf.settings.tailwindCSS = vim.tbl_get(server_config, "settings", "tailwindCSS") or {}
+  conf.settings.tailwindCSS =
+    vim.tbl_deep_extend("keep", conf.settings.tailwindCSS, server_config.settings)
+  conf.settings.tailwindCSS.includeLanguages = vim.tbl_extend(
+    "keep",
+    server_config.settings.includeLanguages or {},
+    filetypes.get_server_map()
+  )
+
+  conf.capabilities = vim.lsp.protocol.make_client_capabilities()
+  conf.capabilities.textDocument.colorProvider = {
+    dynamicRegistration = true,
+  }
+
+  vim.lsp.config("tailwindcss", conf)
+  vim.lsp.enable("tailwindcss")
+end
+
 ---@type fun(lspconfig: any)
 ---@return function(fname: string): string?
 M.make_root_dir = function(lspconfig)
