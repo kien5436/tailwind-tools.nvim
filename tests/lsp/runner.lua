@@ -32,7 +32,7 @@ M.test = function(spec)
       local response
 
       vim.wait(12000, function()
-        response = client.request_sync("@/tailwindCSS/getProject", params, 3000, bufnr)
+        response = client:request_sync("@/tailwindCSS/getProject", params, 3000, bufnr)
         return response and response.result
       end)
 
