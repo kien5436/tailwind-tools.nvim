@@ -33,7 +33,12 @@ local function set_conceal(bufnr)
   end
 end
 
-M.enable = function()
+local registered = false
+
+local function register()
+  if registered then return end
+  registered = true
+
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
     group = vim.g.tailwind_tools.conceal_au,
     callback = function(args) set_conceal(args.buf) end,
@@ -46,6 +51,15 @@ M.enable = function()
       if state.conceal.enabled then set_conceal(args.buf) end
     end,
   })
+end
+
+---@param bufnr integer
+M.apply = function(bufnr)
+  if state.conceal.enabled and vim.api.nvim_buf_is_valid(bufnr) then set_conceal(bufnr) end
+end
+
+M.enable = function()
+  register()
 
   for _, bufnr in pairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_loaded(bufnr) then set_conceal(bufnr) end
@@ -59,10 +73,8 @@ end
 
 M.disable = function()
   vim.wo.conceallevel = 0
-  vim.api.nvim_clear_autocmds({
-    group = vim.g.tailwind_tools.conceal_au,
-    event = { "TextChanged", "TextChangedI" },
-  })
+  vim.api.nvim_clear_autocmds({ group = vim.g.tailwind_tools.conceal_au })
+  registered = false
 
   for bufnr, _ in pairs(state.conceal.active_buffers) do
     if vim.api.nvim_buf_is_valid(bufnr) then
