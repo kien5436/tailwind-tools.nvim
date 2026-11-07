@@ -303,6 +303,14 @@ M.on_attach = function(client, bufnr)
   local key = client.id .. ":" .. bufnr
   if attached[key] then return end
   attached[key] = true
+
+  -- The plugin renders colors itself; disable Neovim's native documentColor
+  -- provider (0.12+) for this client so colors are not double-rendered and
+  -- TailwindColorDisable actually turns them off.
+  if vim.lsp.document_color and vim.lsp.document_color.enable then
+    vim.lsp.document_color.enable(false, { client_id = client.id })
+  end
+
   vim.api.nvim_create_autocmd(color_events, {
     group = vim.g.tailwind_tools.color_au,
     buffer = bufnr,
