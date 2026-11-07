@@ -12,12 +12,12 @@ jobs:
   test:
     strategy:
       matrix:
-        version: [stable, nightly]
+        version: [stable, nightly, v0.10.4]
 
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup neovim
         uses: rhysd/action-setup-vim@v1
@@ -26,9 +26,9 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
 
       - name: Install parsers
         run: |
@@ -37,15 +37,15 @@ jobs:
       - name: Install npm dependencies
         run: |
           echo "Installing global packages..."
-          npm install -g neovim @tailwindcss/language-server
-          npm list -g --json | jq -r '.dependencies 
+          npm install -g neovim@5.5.0 @tailwindcss/language-server@0.16.0
+          npm list -g --json | jq -r '.dependencies
           | to_entries[]
           | select(.key | IN("@tailwindcss/language-server", "neovim"))
           | "- \(.key): \(.value.version)"'
 
           echo "Installing test projects dependencies..."
-          cd tests/lsp/v3 && npm install
-          cd ../v4 && npm install
+          cd tests/lsp/v3 && npm ci
+          cd ../v4 && npm ci
 
       - name: Run checkhealth
         run: |

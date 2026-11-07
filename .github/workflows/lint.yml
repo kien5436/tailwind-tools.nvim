@@ -30,8 +30,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Lint with stylua
-        uses: JohnnyMorganz/stylua-action@v3
+        uses: JohnnyMorganz/stylua-action@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          version: latest
+          version: 2.1.0
           args: --check .
