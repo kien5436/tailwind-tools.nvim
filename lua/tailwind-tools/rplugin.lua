@@ -6,7 +6,8 @@ local M = {}
 
 local function nil_wrap(fn)
   return function(args)
-    local result = fn(args)
+    local ok, result = pcall(fn, args)
+    if not ok then return nil end
     if result ~= vim.NIL then return result end
   end
 end

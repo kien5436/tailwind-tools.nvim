@@ -60,6 +60,7 @@ end
 
 M.enable = function()
   register()
+  state.conceal.enabled = true
 
   for _, bufnr in pairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_loaded(bufnr) then set_conceal(bufnr) end
@@ -67,12 +68,15 @@ M.enable = function()
 
   -- Restore color hints
   if state.color.enabled then lsp.color_request(nil, 0) end
-
-  state.conceal.enabled = true
 end
 
 M.disable = function()
-  vim.wo.conceallevel = 0
+  state.conceal.enabled = false
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_set_option_value("conceallevel", 0, { win = win })
+    end
+  end
   vim.api.nvim_clear_autocmds({ group = vim.g.tailwind_tools.conceal_au })
   registered = false
 
@@ -85,7 +89,6 @@ M.disable = function()
   if state.color.enabled then lsp.color_request(nil, 0) end
 
   state.conceal.active_buffers = {}
-  state.conceal.enabled = false
 end
 
 M.toggle = function()

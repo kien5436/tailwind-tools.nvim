@@ -20,8 +20,12 @@ local function get_class_range(node, metadata, capture_id)
     local m_start = metadata.start and tonumber(metadata.start) or 0
     local m_end = metadata["end"] and tonumber(metadata["end"]) or 0
 
-    s_row, s_col, _, _ = children[m_start + 1]:range()
-    _, _, e_row, e_col = children[#children - m_end]:range()
+    local first = m_start + 1
+    local last = #children - m_end
+    if first >= 1 and last >= first and last <= #children then
+      s_row, s_col, _, _ = children[first]:range()
+      _, _, e_row, e_col = children[last]:range()
+    end
   end
 
   return { s_row, s_col, e_row, e_col }

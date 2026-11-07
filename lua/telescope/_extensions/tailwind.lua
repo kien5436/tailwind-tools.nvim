@@ -16,16 +16,16 @@ local fg_prefixes = { "text", "border", "outline" }
 
 local function get_hl_kind(class_name)
   for _, prefix in pairs(fg_prefixes) do
-    if vim.startswith(class_name, prefix) then return "foreground" end
+    if vim.startswith(class_name, prefix .. "-") or class_name == prefix then return "foreground" end
   end
 
   return "background"
 end
 
 local function utility_picker()
-  local utilities = rplugin.get_utilities()
+  local ok, utilities = pcall(rplugin.get_utilities)
 
-  if not utilities then return log.error("No project found") end
+  if not ok or not utilities then return log.error("No project found") end
 
   local displayer = entry_display.create({
     separator = "",
@@ -61,9 +61,9 @@ local function utility_picker()
     title = "CSS Output",
     define_preview = function(self, entry)
       local bufnr = self.state.bufnr
-      local css = rplugin.expand_utilities({ entry.value.name })
+      local ok_util, css = pcall(rplugin.expand_utilities, { entry.value.name })
 
-      if css then
+      if ok_util and css then
         vim.bo[bufnr].ft = "css"
         vim.api.nvim_buf_set_text(bufnr, 0, -1, 0, -1, vim.split(css, "\n"))
         entry.value.css = css
@@ -109,7 +109,7 @@ local function class_picker()
     local s_row, s_col, e_row, e_col = unpack(range)
     local text = vim.api.nvim_buf_get_text(bufnr, s_row, s_col, e_row, e_col, {})
 
-    entries[#entries + 1] = { range = range, text = table.concat(text, "\n") }
+    entries[#entries + 1] = { range = range, text = table.concat(text, " "):gsub("%s+", " ") }
   end
 
   local finder = finders.new_table({

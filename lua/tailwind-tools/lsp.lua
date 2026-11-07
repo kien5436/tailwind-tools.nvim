@@ -7,6 +7,11 @@ local config = require("tailwind-tools.config")
 local classes = require("tailwind-tools.classes")
 local filetypes = require("tailwind-tools.filetypes")
 
+-- Tracks (client, buffer) pairs already wired, because Neovim fires both
+-- LspAttach (handled by on_attach_cb) and the lspconfig on_attach wrapper
+-- (make_on_attach) for the same attach.
+local attached = {}
+
 local color_events = {
   "BufEnter",
   "TextChanged",
@@ -20,11 +25,12 @@ local color_events = {
 local extension_inside = {}
 local extension_timer = nil
 
+---@param bufnr? number
 ---@return vim.lsp.Client?
-local function get_tailwindcss()
+local function get_tailwindcss(bufnr)
   ---@diagnostic disable-next-line: deprecated
   local get_client = vim.lsp.get_clients or vim.lsp.get_active_clients
-  local clients = get_client({ name = "tailwindcss" })
+  local clients = get_client({ bufnr = bufnr or 0, name = "tailwindcss" })
   return clients[1]
 end
 
@@ -77,7 +83,7 @@ end
 ---@param bufnr number
 ---@param sync boolean
 local function sort_classes(ranges, bufnr, sync)
-  local client = get_tailwindcss()
+  local client = get_tailwindcss(bufnr)
 
   if not client then return log.error("tailwind-language-server is not running") end
   if #ranges == 0 then return end
@@ -129,18 +135,15 @@ local function sort_classes(ranges, bufnr, sync)
   end
 end
 ---@param regex string[] | string[][]
-M.register_regex = function(regex)
-  local client = get_tailwindcss()
-
+---@param client? vim.lsp.Client
+M.register_regex = function(regex, client)
+  client = client or get_tailwindcss()
   if not client then return end
 
-  local update = {
-    tailwindCSS = {
-      experimental = { classRegex = regex },
-    },
-  }
-
-  client.settings = vim.tbl_deep_extend("force", client.settings or {}, update)
+  client.settings = client.settings or {}
+  client.settings.tailwindCSS = client.settings.tailwindCSS or {}
+  client.settings.tailwindCSS.experimental = client.settings.tailwindCSS.experimental or {}
+  client.settings.tailwindCSS.experimental.classRegex = regex
 
   client:notify("workspace/didChangeConfiguration", {
     settings = client.settings,
@@ -172,6 +175,9 @@ end
 ---@param server_config TailwindTools.ServerOption
 ---@param lspconfig { tailwindcss: lspconfig.Config }
 M.setup = function(server_config, lspconfig)
+  for key, _ in pairs(attached) do
+    attached[key] = nil
+  end
   local conf = build_conf(server_config)
   conf.on_attach = M.make_on_attach(server_config.on_attach)
   conf.root_dir = server_config.root_dir or M.make_root_dir(lspconfig)
@@ -181,18 +187,23 @@ end
 
 ---@param server_config TailwindTools.ServerOption
 M.setup_native = function(server_config)
+  for key, _ in pairs(attached) do
+    attached[key] = nil
+  end
   local conf = build_conf(server_config)
   conf.on_attach = M.make_on_attach(server_config.on_attach)
   conf.filetypes = filetypes.get_all()
 
   -- Without nvim-lspconfig there is no base `lsp/tailwindcss.lua` config, so
   -- supply our own root markers. Mirrors the root_files in M.make_root_dir.
+  -- Note: bare `package.json` is intentionally excluded (unlike the lspconfig
+  -- path which checks for a tailwindcss dependency); it would otherwise
+  -- attach the server to any JS project.
   conf.root_markers = {
     "tailwind.config.js",
     "tailwind.config.cjs",
     "tailwind.config.mjs",
     "tailwind.config.ts",
-    "package.json",
     "postcss.config.js",
     "postcss.config.cjs",
     "postcss.config.mjs",
@@ -238,10 +249,10 @@ M.make_on_attach = function(user_on_attach)
   end
 end
 
--- Tracks (client, buffer) pairs already wired, because Neovim fires both
--- LspAttach (handled by on_attach_cb) and the lspconfig on_attach wrapper
--- (make_on_attach) for the same attach.
-local attached = {}
+-- Last regex state sent per client (client-global setting). Per-buffer
+-- extension_inside tracks cursor state; last_sent_inside tracks what each
+-- server actually has, so returning to a buffer re-registers when needed.
+local last_sent_inside = {}
 
 ---@param args vim.api.keyset.create_autocmd.callback_args
 M.on_attach_cb = function(args)
@@ -253,28 +264,36 @@ end
 ---@param args vim.api.keyset.create_autocmd.callback_args
 M.on_detach_cb = function(args)
   for key, _ in pairs(attached) do
-    if key:match(":" .. args.buf .. "$") then attached[key] = nil end
+    if key:match(":" .. args.buf .. "$") then
+      local id = key:match("^(%d+):")
+      attached[key] = nil
+      if id then last_sent_inside[tonumber(id)] = nil end
+    end
   end
   extension_inside[args.buf] = nil
+  if extension_timer then
+    extension_timer:stop()
+    extension_timer:close()
+    extension_timer = nil
+  end
 end
 
--- Last regex state sent to the server (client-global setting). Per-buffer
--- extension_inside tracks cursor state; last_sent_inside tracks what the
+-- Last regex state sent per client (client-global setting). Per-buffer
+-- extension_inside tracks cursor state; last_sent_inside tracks what each
 -- server actually has, so returning to a buffer re-registers when needed.
-local last_sent_inside = nil
 
 ---@param client vim.lsp.Client
 ---@param bufnr integer
 local function send_extension_state(client, bufnr, inside)
   local user_regex = config.options.server.class_regex or {}
   if #user_regex == 0 then return end
-  if last_sent_inside == inside then
+  if last_sent_inside[client.id] == inside then
     M.color_request(client, bufnr)
     return
   end
-  last_sent_inside = inside
+  last_sent_inside[client.id] = inside
   local regex = inside and user_regex or {}
-  M.register_regex(regex)
+  M.register_regex(regex, client)
   M.color_request(client, bufnr)
 end
 
@@ -354,7 +373,8 @@ end
 ---@param client vim.lsp.Client | nil
 ---@param bufnr number
 M.color_request = function(client, bufnr)
-  client = client or get_tailwindcss()
+  if not state.color.enabled then return end
+  client = client or get_tailwindcss(bufnr)
   if not client then return end
 
   local params = { textDocument = vim.lsp.util.make_text_document_params(bufnr) }
@@ -379,14 +399,20 @@ M.color_request = function(client, bufnr)
 end
 
 M.enable_color = function()
-  local client = get_tailwindcss()
-  if client then
-    M.color_request(client, 0)
-    state.color.enabled = true
-  end
+  state.color.enabled = true
+  local client = get_tailwindcss(0)
+  if client then M.color_request(client, 0) end
 end
 
 M.disable_color = function()
+  local timer = state.color.request_timer
+  if timer then
+    state.color.request_timer = nil
+    if not timer:is_closing() then
+      timer:stop()
+      timer:close()
+    end
+  end
   for bufnr, _ in pairs(state.color.active_buffers) do
     if vim.api.nvim_buf_is_valid(bufnr) then
       vim.api.nvim_buf_clear_namespace(bufnr, vim.g.tailwind_tools.color_ns, 0, -1)
@@ -405,10 +431,21 @@ M.toggle_colors = function()
   end
 end
 
----@param sync boolean
-M.sort_selection = function(sync)
+---@param sync boolean?
+---@param opts? { line1: number, line2: number }
+M.sort_selection = function(sync, opts)
   local bufnr = vim.api.nvim_get_current_buf()
   local s_row, s_col, e_row, e_col = utils.get_visual_range()
+
+  if s_row < 0 and opts and opts.line1 and opts.line2 then
+    s_row = opts.line1 - 1
+    e_row = opts.line2 - 1
+    s_col = 0
+    e_col = #vim.api.nvim_buf_get_lines(bufnr, e_row, e_row + 1, false)[1]
+  end
+
+  if s_row < 0 then return log.info("No selection") end
+
   local class_ranges = { { s_row, s_col, e_row, e_col } }
 
   sort_classes(class_ranges, bufnr, sync)

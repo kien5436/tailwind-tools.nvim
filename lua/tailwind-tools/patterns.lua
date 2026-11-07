@@ -2,27 +2,37 @@ local M = {}
 
 ---@param b_start number
 ---@param b_end number
----@param bufnr number
-local function byte_range_to_pos(b_start, b_end, bufnr)
-  local line_count = vim.api.nvim_buf_line_count(bufnr)
-  local line_offsets = {}
-
-  for i = 1, line_count do
-    line_offsets[i] = vim.api.nvim_buf_get_offset(bufnr, i - 1)
-  end
-
+---@param line_offsets number[]
+local function byte_range_to_pos(b_start, b_end, line_offsets)
   local s_row, s_col, e_row, e_col
 
-  for line, offset in pairs(line_offsets) do
-    local next_offset = line_offsets[line + 1]
-
-    if not next_offset or b_start >= offset and b_start < next_offset then
-      s_row = line - 1
+  local lo, hi = 1, #line_offsets
+  while lo <= hi do
+    local mid = math.floor((lo + hi) / 2)
+    local offset = line_offsets[mid]
+    local next_offset = line_offsets[mid + 1]
+    if b_start < offset then
+      hi = mid - 1
+    elseif next_offset and b_start >= next_offset then
+      lo = mid + 1
+    else
+      s_row = mid - 1
       s_col = b_start - offset
+      break
     end
+  end
 
-    if not next_offset or b_end >= offset and b_end < next_offset then
-      e_row = line - 1
+  lo, hi = 1, #line_offsets
+  while lo <= hi do
+    local mid = math.floor((lo + hi) / 2)
+    local offset = line_offsets[mid]
+    local next_offset = line_offsets[mid + 1]
+    if b_end < offset then
+      hi = mid - 1
+    elseif next_offset and b_end >= next_offset then
+      lo = mid + 1
+    else
+      e_row = mid - 1
       e_col = b_end - offset
       break
     end
@@ -53,25 +63,31 @@ M.find_class_ranges = function(bufnr, pattern_definition)
   if not pattern then return results end
 
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
-  local substr = table.concat(lines, "\n")
-  local offset = 0
+  local text = table.concat(lines, "\n")
 
-  while true do
-    local b_start, b_end, class = substr:find(pattern)
+  local line_count = vim.api.nvim_buf_line_count(bufnr)
+  local line_offsets = {}
+  for i = 1, line_count do
+    line_offsets[i] = vim.api.nvim_buf_get_offset(bufnr, i - 1)
+  end
+
+  local init = 1
+  while init <= #text + 1 do
+    local b_start, b_end, class = text:find(pattern, init)
 
     if b_start == nil then break end
+    if type(class) ~= "string" or #class == 0 then break end
+    if b_end < init then break end
 
-    substr = substr:sub(b_start)
-    offset = offset + b_start - 1
+    local class_start = text:find(class, b_start, true)
+    if not class_start then break end
+    local class_end = class_start + #class - 1
+    local s_row, s_col, e_row, e_col = byte_range_to_pos(class_start - 1, class_end, line_offsets)
 
-    local match_len = b_end - b_start
-    local class_start = substr:find(class, 1, true) + offset - 1
-    local class_end = class_start + #class
-    local s_row, s_col, e_row, e_col = byte_range_to_pos(class_start, class_end, bufnr)
+    if s_row == nil or e_row == nil then break end
 
     results[#results + 1] = { s_row, s_col, e_row, e_col, delimiter = delimiter }
-    substr = substr:sub(match_len)
-    offset = offset + match_len - 1
+    init = b_end + 1
   end
 
   return results

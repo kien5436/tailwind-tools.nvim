@@ -39,7 +39,11 @@ M.is_inside = function(bufnr)
 
   for _, range in pairs(ranges) do
     local s_row, s_col, e_row, e_col = unpack(range)
-    if (row >= s_row and row <= e_row) and (col >= s_col and col <= e_col) then return true end
+    if row >= s_row and row <= e_row then
+      local before_start = row == s_row and col < s_col
+      local after_end = row == e_row and col > e_col
+      if not before_start and not after_end then return true end
+    end
   end
 
   return false

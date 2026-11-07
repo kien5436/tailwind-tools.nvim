@@ -50,14 +50,18 @@ local function get_cursor_word()
   return w_start, w_end
 end
 
----@param cursor number[]
+---@param cursor number[] 0-based { row, col }
 local function find_range_at_cursor(cursor)
   local ranges = classes.get_ranges(0)
-  local cursor_row = unpack(cursor)
+  local cursor_row, cursor_col = cursor[1], cursor[2]
 
   for _, range in pairs(ranges) do
-    local range_row = unpack(range)
-    if range_row == cursor_row then return range end
+    local s_row, s_col, e_row, e_col = unpack(range)
+    if cursor_row >= s_row and cursor_row <= e_row then
+      local before_start = cursor_row == s_row and cursor_col < s_col
+      local after_end = cursor_row == e_row and cursor_col > e_col
+      if not before_start and not after_end then return range end
+    end
   end
 end
 
