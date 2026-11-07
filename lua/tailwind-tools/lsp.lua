@@ -15,7 +15,10 @@ local color_events = {
   "CursorMovedI",
 }
 
-local everywhere_re = { "([a-zA-Z0-9\\-:]+)" }
+-- Last known inside/outside state per buffer, avoids spamming the server
+-- with workspace/didChangeConfiguration on every CursorMoved.
+local extension_inside = {}
+local extension_timer = nil
 
 ---@return vim.lsp.Client?
 local function get_tailwindcss()
@@ -256,10 +259,29 @@ M.on_attach = function(client, bufnr)
       group = vim.g.tailwind_tools.color_au,
       buffer = bufnr,
       callback = function(args)
-        -- Dynamically toggle regex based on cursor position
-        local regex = classes.is_inside(args.buf) and everywhere_re or {}
-        M.register_regex(regex)
-        M.color_request(client, args.buf)
+        -- Only user-provided regexes are ever registered; an empty list
+        -- keeps the feature inert (no server traffic, no catch-all noise).
+        local user_regex = config.options.server.class_regex or {}
+        if #user_regex == 0 then return end
+
+        -- Dynamically toggle regex based on cursor position,
+        -- only notifying the server when the state flips (debounced).
+        local inside = classes.is_inside(args.buf)
+        if extension_inside[args.buf] == inside then return end
+        extension_inside[args.buf] = inside
+
+        if extension_timer then
+          extension_timer:stop()
+          extension_timer:close()
+          extension_timer = nil
+        end
+
+        extension_timer = vim.defer_fn(function()
+          extension_timer = nil
+          local regex = inside and user_regex or {}
+          M.register_regex(regex)
+          M.color_request(client, args.buf)
+        end, 200)
       end,
     })
   end
