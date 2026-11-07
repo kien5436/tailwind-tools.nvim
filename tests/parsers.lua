@@ -1,3 +1,7 @@
+-- NOTE: these are nvim-treesitter *parser* names, not filetypes, so this
+-- list intentionally differs from lua/tailwind-tools/filetypes.lua (which
+-- uses filetype names like blade, eruby, javascriptreact). Keep both in sync
+-- when adding language support.
 local parsers = {
   "html",
   "css",

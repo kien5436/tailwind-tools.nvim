@@ -33,11 +33,9 @@ local function register_autocmd()
     callback = lsp.on_attach_cb,
   })
 
-  autocmd("BufEnter", {
-    group = vim.g.tailwind_tools.conceal_au,
-    callback = function()
-      if state.conceal.enabled then conceal.enable() end
-    end,
+  autocmd("LspDetach", {
+    group = vim.g.tailwind_tools.color_au,
+    callback = lsp.on_detach_cb,
   })
 
   autocmd("Colorscheme", {

@@ -10,8 +10,6 @@ local classes = require("tailwind-tools.classes")
 ---@field sorted string[]
 ---@field reverse table<string, integer>
 
-local units = config.options.keymaps.smart_increment.units
-
 ---@param tbl {prefix: string?, values: string[]}
 ---@return LookupTable
 local function make_lookup_table(tbl)
@@ -163,7 +161,7 @@ M.set_smart_increment = function()
 
   local lookup_tables = {}
 
-  for _, value in pairs(units) do
+  for _, value in pairs(config.options.keymaps.smart_increment.units) do
     lookup_tables[#lookup_tables + 1] = make_lookup_table(value)
   end
 
@@ -186,16 +184,6 @@ M.set_smart_increment = function()
   vim.api.nvim_create_user_command("TailwindDecrement", decrement, {})
 
   state.smart_increment.active = true
-end
-
-M.unset_smart_increment = function()
-  vim.keymap.del("n", "<c-a>")
-  vim.keymap.del("n", "<c-x>")
-
-  vim.api.nvim_del_user_command("TailwindIncrement")
-  vim.api.nvim_del_user_command("TailwindDecrement")
-
-  state.smart_increment.active = false
 end
 
 return M

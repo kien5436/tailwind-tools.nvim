@@ -30,7 +30,6 @@ local units = require("tailwind-tools.units")
 ---@field settings TailwindTools.SettingsOption
 ---@field on_attach? vim.lsp.client.on_attach_cb
 ---@field root_dir? fun(fname: string): string | nil
----@field capabilities vim.lsp.ClientCapabilities
 ---@field client_extension? boolean
 ---@field class_regex? string[] | [string, string][]
 
