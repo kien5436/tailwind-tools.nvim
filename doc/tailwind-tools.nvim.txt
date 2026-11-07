@@ -1,4 +1,5 @@
-*tailwind-tools.nvim.txt*       For NVIM v0.12.0      Last change: 2026 Nov 07
+*tailwind-tools.nvim.txt*
+                             For NVIM v0.12.0    Last change: 2026 November 07
 
   [!IMPORTANT] This plugin is a community project and is **NOT** officially
   supported by Tailwind Labs <https://github.com/tailwindlabs>.
@@ -6,17 +7,16 @@
 ==============================================================================
 1. tailwind-tools.nvim               *tailwind-tools.nvim-tailwind-tools.nvim*
 
+
+  [!NOTE] This is a maintained fork of luckasRanarison/tailwind-tools.nvim
+  <https://github.com/luckasRanarison/tailwind-tools.nvim>, which was archived by
+  its original author. It is now actively maintained by kien5436
+  <https://github.com/kien5436> — please file issues and pull requests here.
 An unofficial Tailwind CSS <https://github.com/tailwindlabs/tailwindcss>
 integration and tooling for Neovim <https://github.com/neovim/neovim> written
 in Lua and JavaScript, leveraging the built-in LSP client, Treesitter, and the
 NodeJS plugin host. It is inspired by the official Visual Studio Code extension
 <https://github.com/tailwindlabs/tailwindcss-intellisense>.
-
-  [!NOTE] This is a maintained fork of
-  luckasRanarison/tailwind-tools.nvim
-  <https://github.com/luckasRanarison/tailwind-tools.nvim>, which was archived
-  by its original author. It is now actively maintained by kien5436
-  <https://github.com/kien5436> — please file issues and pull requests here.
 
 
 CONTENTS                                        *tailwind-tools.nvim-contents*
@@ -81,9 +81,9 @@ Using lazy.nvim <https://github.com/folke/lazy.nvim>:
     }
 <
 
-If you are using other package managers, you need to register the remote
-plugin by running the `:UpdateRemotePlugins` command, then call `setup` to
-enable the lua plugin:
+If you are using other package managers, you need to register the remote plugin
+by running the `:UpdateRemotePlugins` command, then call `setup` to enable the
+lua plugin:
 
 >lua
     require("tailwind-tools").setup({
@@ -228,9 +228,9 @@ Utility function for highlighting colors in nvim-cmp
 
 TELESCOPE.NVIM ~
 
-  [!NOTE] The telescope utilities use the Tailwind CSS v3 `resolveConfig` API
-  and only work with v3 projects. v4 projects are not supported.
 
+  [!NOTE] The telescope utilities use the Tailwind CSS v3 `resolveConfig` API and
+  only work with v3 projects. v4 projects are not supported.
 The plugins registers by default a telescope extension that you can call using
 `:Telescope tailwind <subcommand>`
 
