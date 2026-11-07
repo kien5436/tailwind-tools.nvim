@@ -15,14 +15,22 @@ local function register_usercmd()
   usercmd("TailwindConcealDisable", conceal.disable, { nargs = 0 })
   usercmd("TailwindConcealToggle", conceal.toggle, { nargs = 0 })
   usercmd("TailwindSort", function() lsp.sort_classes() end, { nargs = 0 })
-  usercmd("TailwindSortSelection", function(args) lsp.sort_selection(nil, args) end, { range = true })
+  usercmd(
+    "TailwindSortSelection",
+    function(args) lsp.sort_selection(nil, args) end,
+    { range = true }
+  )
   usercmd("TailwindColorEnable", lsp.enable_color, { nargs = 0 })
   usercmd("TailwindColorDisable", lsp.disable_color, { nargs = 0 })
   usercmd("TailwindColorToggle", lsp.toggle_colors, { nargs = 0 })
   usercmd("TailwindNextClass", motions.move_to_next_class, { nargs = 0, range = "%" })
   usercmd("TailwindPrevClass", motions.move_to_prev_class, { nargs = 0, range = "%" })
   usercmd("TailwindSortSync", function() lsp.sort_classes(true) end, { nargs = 0 })
-  usercmd("TailwindSortSelectionSync", function(args) lsp.sort_selection(true, args) end, { range = true })
+  usercmd(
+    "TailwindSortSelectionSync",
+    function(args) lsp.sort_selection(true, args) end,
+    { range = true }
+  )
 end
 
 local function register_autocmd()

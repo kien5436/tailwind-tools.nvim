@@ -6,12 +6,8 @@ describe("sort command:", function()
   it("uses the async path", function()
     local seen = {}
     local fake = {
-      request = function(_, method)
-        seen.method = method
-      end,
-      request_sync = function()
-        seen.sync = true
-      end,
+      request = function(_, method) seen.method = method end,
+      request_sync = function() seen.sync = true end,
     }
     local orig = vim.lsp.get_clients
     vim.lsp.get_clients = function() return { fake } end
@@ -84,7 +80,7 @@ end)
 describe("patterns:", function()
   it("handles missing captures and empty matches", function()
     local buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { 'x = 1' })
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "x = 1" })
     local patterns = require("tailwind-tools.patterns")
     assert.same({}, patterns.find_class_ranges(buf, "class"))
     assert.same({}, patterns.find_class_ranges(buf, "x*"))

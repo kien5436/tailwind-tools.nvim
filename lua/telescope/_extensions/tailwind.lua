@@ -16,7 +16,9 @@ local fg_prefixes = { "text", "border", "outline" }
 
 local function get_hl_kind(class_name)
   for _, prefix in pairs(fg_prefixes) do
-    if vim.startswith(class_name, prefix .. "-") or class_name == prefix then return "foreground" end
+    if vim.startswith(class_name, prefix .. "-") or class_name == prefix then
+      return "foreground"
+    end
   end
 
   return "background"
