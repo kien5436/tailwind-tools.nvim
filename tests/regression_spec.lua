@@ -3,10 +3,17 @@ local lsp = require("tailwind-tools.lsp")
 local state = require("tailwind-tools.state")
 
 describe("sort command:", function()
+  -- Production code calls client methods with `:` on 0.11+ (self first) and
+  -- with `.` on 0.10 (pre-bound, no self); fakes normalize both shapes.
+  local function split_args(a, b, c)
+    if type(a) == "string" then return a, b end
+    return b, c
+  end
+
   it("uses the async path", function()
     local seen = {}
     local fake = {
-      request = function(_, method) seen.method = method end,
+      request = function(a, b) seen.method = split_args(a, b) end,
       request_sync = function() seen.sync = true end,
     }
     local orig = vim.lsp.get_clients
@@ -21,9 +28,8 @@ describe("sort command:", function()
   it("falls back to the command range without a visual selection", function()
     local seen = {}
     local fake = {
-      request = function(_, method, params)
-        seen.method = method
-        seen.params = params
+      request = function(a, b, c)
+        seen.method, seen.params = split_args(a, b, c)
       end,
     }
     local orig = vim.lsp.get_clients

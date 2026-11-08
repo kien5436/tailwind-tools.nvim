@@ -15,14 +15,31 @@ local M = {}
 M.test = function(spec)
   describe(("project (%s):"):format(spec.id), function()
     it("Should initialize project", function()
+      -- A previous spec in the same process may have left a live tailwindcss
+      -- server running for another project root (only relevant when specs run
+      -- sequentially). Force-stop for a clean slate.
+      for _, c in ipairs(vim.lsp.get_clients({ name = "tailwindcss" })) do
+        vim.lsp.stop_client(c.id, true)
+      end
+
+      vim.wait(10000, function() return #vim.lsp.get_clients({ name = "tailwindcss" }) == 0 end)
+
       vim.cmd.edit(spec.path)
 
       ---@type vim.lsp.Client | nil
       local client
 
-      vim.wait(10000, function()
-        client = vim.lsp.get_clients({ bufnr = 0, name = "tailwindcss" })[1]
-        return client ~= nil
+      vim.wait(20000, function()
+        for _, c in ipairs(vim.lsp.get_clients({ bufnr = 0, name = "tailwindcss" })) do
+          -- A previous spec's dying client may still be attached; only accept
+          -- the client actually rooted at this spec's project.
+          local root = c.config and c.config.root_dir
+          if type(root) ~= "string" or root:sub(-#spec.id) == spec.id then
+            client = c
+            return true
+          end
+        end
+        return false
       end)
 
       assert(client, "Couldn't get client")
@@ -31,13 +48,16 @@ M.test = function(spec)
       local params = vim.lsp.util.make_text_document_params(bufnr)
       local response
 
-      vim.wait(12000, function()
-        response = client:request_sync("@/tailwindCSS/getProject", params, 3000, bufnr)
-        return response and response.result
+      -- The language server detects the project asynchronously after startup
+      -- and reports `result: null` until it has finished; on a cold start (CI)
+      -- this can exceed the default budget, so poll with a generous one.
+      vim.wait(60000, function()
+        response =
+          utils.client_request_sync(client, "@/tailwindCSS/getProject", params, 10000, bufnr)
+        return response and response.result ~= nil
       end)
 
-      assert(response, "No response from the server")
-      assert(response.result, "No project found: " .. vim.json.encode(response))
+      assert(response and response.result, "No project found: " .. vim.json.encode(response or {}))
 
       -- Patch drift (server 0.16 vs fixture pins) must not break CI, but a
       -- wrong-major project still fails loudly.
@@ -155,6 +175,15 @@ M.test = function(spec)
       assert.same(expected, lines)
     end)
   end)
+
+  -- Force-stop the language server before this spec's process exits. Plenary
+  -- runs each spec in its own `nvim --headless` job and fails the job on a
+  -- non-zero exit; leaving a live client to Neovim's shutdown path exits 1 on
+  -- some nightly Linux builds even after every test passes.
+  for _, c in ipairs(vim.lsp.get_clients({ name = "tailwindcss" })) do
+    vim.lsp.stop_client(c.id, true)
+  end
+  vim.wait(3000, function() return #vim.lsp.get_clients({ name = "tailwindcss" }) == 0 end)
 end
 
 return M

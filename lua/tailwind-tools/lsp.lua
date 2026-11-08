@@ -123,7 +123,8 @@ local function sort_classes(ranges, bufnr, sync)
   end
 
   if sync then
-    local response = client:request_sync("@/tailwindCSS/sortSelection", params, 2000, bufnr)
+    local response =
+      utils.client_request_sync(client, "@/tailwindCSS/sortSelection", params, 2000, bufnr)
 
     if response then
       handler(response.err, response.result)
@@ -131,7 +132,7 @@ local function sort_classes(ranges, bufnr, sync)
       log.error("LSP request timed out")
     end
   else
-    client:request("@/tailwindCSS/sortSelection", params, handler, bufnr)
+    utils.client_request(client, "@/tailwindCSS/sortSelection", params, handler, bufnr)
   end
 end
 ---@param regex string[] | string[][]
@@ -145,7 +146,7 @@ M.register_regex = function(regex, client)
   client.settings.tailwindCSS.experimental = client.settings.tailwindCSS.experimental or {}
   client.settings.tailwindCSS.experimental.classRegex = regex
 
-  client:notify("workspace/didChangeConfiguration", {
+  utils.client_notify(client, "workspace/didChangeConfiguration", {
     settings = client.settings,
   })
 end
@@ -387,7 +388,7 @@ M.color_request = function(client, bufnr)
 
   local params = { textDocument = vim.lsp.util.make_text_document_params(bufnr) }
 
-  client:request("textDocument/documentColor", params, function(err, result, _, _)
+  utils.client_request(client, "textDocument/documentColor", params, function(err, result, _, _)
     if err then return log.error(err.message) end
     if not result or not vim.api.nvim_buf_is_valid(bufnr) then return end
 

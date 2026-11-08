@@ -22,12 +22,22 @@ local parsers = {
 
 -- nvim-treesitter's rewrite (main branch) removed :TSInstallSync in favor of
 -- require("nvim-treesitter").install(); keep the old command as fallback.
-local ok, ts = pcall(require, "nvim-treesitter")
+-- Always quit (non-zero on failure): an error before quit would leave a
+-- headless `nvim --headless` waiting on stdin forever and stall CI.
+local ok, err = pcall(function()
+  local ts_ok, ts = pcall(require, "nvim-treesitter")
 
-if ok and ts.install then
-  ts.install(parsers):wait(300000)
-else
-  vim.cmd.TSInstallSync(parsers)
+  if ts_ok and ts.install then
+    ts.install(parsers):wait(300000)
+  else
+    -- master branch (or older): user command installed by the plugin entry.
+    vim.cmd("TSInstallSync " .. table.concat(parsers, " "))
+  end
+end)
+
+if not ok then
+  print("parsers install failed: " .. tostring(err))
+  vim.cmd("cquit 1")
 end
 
 vim.cmd.quit()

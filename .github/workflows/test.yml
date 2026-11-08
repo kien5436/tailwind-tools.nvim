@@ -11,6 +11,7 @@ on:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         version: [stable, nightly, v0.10.4]
 
@@ -29,6 +30,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Install tree-sitter CLI
+        # nvim-treesitter compiles missing parsers from source and needs the
+        # `tree-sitter` binary to do so; without it parsers silently stay
+        # broken and every treesitter test fails downstream.
+        run: npm install -g tree-sitter-cli
 
       - name: Install parsers
         run: |

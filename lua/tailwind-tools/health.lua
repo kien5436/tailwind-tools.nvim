@@ -4,7 +4,11 @@ M.check = function()
   local health = vim.health
 
   local check_parser = function(name)
-    if pcall(vim.treesitter.get_parser, 0, name) then
+    -- get_parser() returns nil (no error) when the parser is missing, so the
+    -- return value must be checked, not just pcall success.
+    local ok, parser = pcall(vim.treesitter.get_parser, 0, name)
+
+    if ok and parser then
       health.ok(name .. " parser is installed")
     else
       health.error(name .. " parser is not installed")

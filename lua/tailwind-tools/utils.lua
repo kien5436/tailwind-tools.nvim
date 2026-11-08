@@ -19,7 +19,7 @@ M.set_hl_from = function(red, green, blue, style)
     opts = { fg = "#" .. color }
   end
 
-  if vim.tbl_isempty(vim.api.nvim_get_hl(0, { name = hl_name, create = false })) then
+  if next(vim.api.nvim_get_hl(0, { name = hl_name, create = false })) == nil then
     vim.api.nvim_set_hl(0, hl_name, opts)
   end
 
@@ -45,6 +45,30 @@ M.get_visual_range = function()
   local e_col = vim.fn.col("'>")
 
   return s_row, s_col, e_row, e_col
+end
+
+-- Neovim 0.10 pre-binds LSP client methods (method_wrapper), so they must be
+-- invoked with `.` and no self; 0.11+ defines real methods invoked with `:`.
+-- Calling a bound method with `:` shifts every argument (bufnr receives the
+-- handler function) and breaks requests on 0.10.
+M.is_legacy_nvim = vim.fn.has("nvim-0.11") == 0
+
+---@param client vim.lsp.Client
+M.client_request = function(client, method, params, handler, bufnr)
+  if M.is_legacy_nvim then return client.request(method, params, handler, bufnr) end
+  return client:request(method, params, handler, bufnr)
+end
+
+---@param client vim.lsp.Client
+M.client_request_sync = function(client, method, params, timeout_ms, bufnr)
+  if M.is_legacy_nvim then return client.request_sync(method, params, timeout_ms, bufnr) end
+  return client:request_sync(method, params, timeout_ms, bufnr)
+end
+
+---@param client vim.lsp.Client
+M.client_notify = function(client, method, params)
+  if M.is_legacy_nvim then return client.notify(method, params) end
+  return client:notify(method, params)
 end
 
 return M
