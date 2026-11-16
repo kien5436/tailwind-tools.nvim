@@ -298,6 +298,13 @@ local function send_extension_state(client, bufnr, inside)
   M.color_request(client, bufnr)
 end
 
+---@param bufnr integer
+local function disable_native(bufnr)
+  if vim.lsp.document_color and vim.lsp.document_color.enable then
+    vim.lsp.document_color.enable(false, { bufnr = bufnr })
+  end
+end
+
 ---@param client vim.lsp.Client
 ---@param bufnr integer
 M.on_attach = function(client, bufnr)
@@ -306,11 +313,13 @@ M.on_attach = function(client, bufnr)
   attached[key] = true
 
   -- The plugin renders colors itself; disable Neovim's native documentColor
-  -- provider (0.12+) for this client so colors are not double-rendered and
-  -- TailwindColorDisable actually turns them off.
-  if vim.lsp.document_color and vim.lsp.document_color.enable then
-    vim.lsp.document_color.enable(false, { client_id = client.id })
-  end
+  -- provider (0.12+) buffer-wise so neither tailwindcss nor cssls
+  -- double-renders and TailwindColorDisable actually turns them off.
+  -- The deferred call wins over core's scheduled Capability:on_attach.
+  disable_native(bufnr)
+  vim.schedule(function()
+    if vim.api.nvim_buf_is_valid(bufnr) then disable_native(bufnr) end
+  end)
 
   vim.api.nvim_create_autocmd(color_events, {
     group = vim.g.tailwind_tools.color_au,
@@ -409,8 +418,10 @@ end
 
 M.enable_color = function()
   state.color.enabled = true
-  local client = get_tailwindcss(0)
-  if client then M.color_request(client, 0) end
+  local bufnr = vim.api.nvim_get_current_buf()
+  disable_native(bufnr)
+  local client = get_tailwindcss(bufnr)
+  if client then M.color_request(client, bufnr) end
 end
 
 M.disable_color = function()
@@ -425,6 +436,7 @@ M.disable_color = function()
   for bufnr, _ in pairs(state.color.active_buffers) do
     if vim.api.nvim_buf_is_valid(bufnr) then
       vim.api.nvim_buf_clear_namespace(bufnr, vim.g.tailwind_tools.color_ns, 0, -1)
+      disable_native(bufnr)
     end
   end
 
